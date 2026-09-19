@@ -1,78 +1,60 @@
-# HEIC Windows Explorer Thumbnail Provider
+# HEIC / HEIF / HEVC Windows Explorer Thumbnail Provider (C++)
 
-A lightweight, fast, and native 64-bit Windows Shell Extension (`IThumbnailProvider`) that generates high-resolution thumbnails for Apple HEIC/HEIF photos directly in Windows Explorer.
-
----
-
-## ⚡ Quick Start (1-Click Install)
-
-1. **Extract all files** from the downloaded `.zip` archive into a folder.
-2. **Right-click `install.bat`** and select **"Run as administrator"**  
-   *(or simply double-click it; Windows will automatically ask for Administrator permission).*
-3. Open any folder containing `.heic` or `.heif` photos in Windows Explorer and set the view to **"Large icons"** or **"Extra large icons"**.
-4. Your thumbnails will appear immediately!
+A lightweight, native 64-bit Windows Shell Extension dynamic link library (DLL) implementing the **`IThumbnailProvider`** and **`IInitializeWithStream`** COM interfaces to decode and display high-resolution thumbnails for Apple iPhone and Android `.heic`, `.heif`, and `.hevc` photos directly inside **Windows Explorer**.
 
 ---
 
-## 📁 What's in This Package
+## ⚡ End-User 1-Click Installation (No Compilation Needed)
 
-| File | Purpose |
+1. Download the latest **`HeicThumbnailProvider-v1.1.0-Windows-x64.zip`** from [Releases](https://github.com/RaptorJesus67/HEIF-Thumbnails-for-Windows-Explorer/releases).
+2. Extract all files into a folder.
+3. **Right-click `install.bat`** and select **"Run as administrator"** *(or simply double-click it; Windows will automatically prompt for Administrator rights)*.
+4. The script automatically:
+   - Copies `HeicThumbnailProvider.dll` safely into `C:\Program Files\HeicThumbnailProvider\`.
+   - Registers the COM shell extension with `regsvr32.exe /s`.
+   - Associates `.heic`, `.heif`, and `.hevc` file extensions with the provider.
+   - Clears stale Windows thumbnail caches (`thumbcache_*.db`) and restarts `explorer.exe`.
+5. Open any folder containing photos, set view to **"Large icons"** or **"Extra large icons"**, and enjoy instant thumbnail previews!
+
+To uninstall at any time, right-click **`uninstall.bat`** and select **"Run as administrator"**.
+
+---
+
+## 📁 Repository Structure
+
+| File / Folder | Purpose |
 | :--- | :--- |
-| **`install.bat`** | 1-Click installer. Copies the DLL to `Program Files`, registers the COM extension, and refreshes the Windows thumbnail cache. |
-| **`uninstall.bat`** | 1-Click uninstaller. Unregisters the extension, cleanly deletes files, and resets the shell cache. |
-| **`HeicThumbnailProvider.dll`** | The compiled 64-bit Windows Shell COM library. |
-| **`README.md`** | This setup guide and troubleshooting documentation. |
+| **`src/DllMain.cpp`** | In-process COM DLL entry point (`DllRegisterServer`, `DllUnregisterServer`, `DllGetClassObject`, `DllCanUnloadNow`). Registers `.heic`, `.heif`, and `.hevc`. |
+| **`src/HeicThumbnailProvider.cpp`** | Implements `IThumbnailProvider::GetThumbnail` & `IInitializeWithStream::Initialize`. |
+| **`src/HeicDecoder.cpp`** | Decoder engine: wraps `libheif`, reads EXIF orientation tags, and generates 32-bit ARGB DIBSection bitmaps. |
+| **`src/ClassFactory.cpp`** | COM class factory instantiation for `CLSID_HeicThumbnailProvider`. |
+| **`src/Guids.h`** | Defines CLSID `{3A78D321-4E65-4C8D-B6E0-B77C0641A0B2}` and shell interface GUIDs. |
+| **`CMakeLists.txt`** | CMake build configuration (links Windows libraries, `shlwapi`, `libheif`). |
+| **`vcpkg.json`** | Package manifest declaring `libheif` dependency. |
+| **`scripts/install.bat`** | 1-Click end-user installer with automatic UAC elevation. |
+| **`scripts/uninstall.bat`** | 1-Click end-user uninstaller. |
+| **`scripts/package_release.bat`** | Automated builder that packages the release ZIP for GitHub. |
+| **`scripts/register.bat`** | Developer script to register DLL directly from the local build folder. |
+| **`scripts/unregister.bat`** | Developer script to unregister DLL and clean registry keys. |
+| **`scripts/install.reg`** | Standalone registry file for manual registry import if desired. |
+| **`installer.iss`** | (Optional) Inno Setup script to generate a standalone `Setup.exe`. |
 
 ---
 
-## ⚙️ What `install.bat` Does Automatically
+## 🛠️ Building From Source
 
-1. **Requests Elevation**: Automatically prompts for Windows UAC Administrator rights if not already elevated.
-2. **Safe System Installation**: Copies `HeicThumbnailProvider.dll` into `C:\Program Files\HeicThumbnailProvider\`. This ensures the thumbnail provider continues working even if you clear or delete your `Downloads` folder later.
-3. **COM Registration**: Calls `regsvr32.exe /s` to register the `IThumbnailProvider` COM interface for `.heic` and `.heif` file associations under `HKEY_CLASSES_ROOT`.
-4. **Instant Cache Flush**: Clears stale Windows Explorer thumbnail databases (`thumbcache_*.db`) and restarts `explorer.exe` so previews appear immediately without needing to restart your computer.
+### Prerequisites
+- **Windows 10 (1809+) or Windows 11 (x64)**
+- **Visual Studio 2022** with *Desktop development with C++*
+- **vcpkg** (Microsoft C++ package manager)
 
----
+### Build Steps (CMake + vcpkg)
+```powershell
+# 1. Install dependencies via vcpkg
+vcpkg install --triplet x64-windows
 
-## 🗑️ How to Uninstall
-
-If you ever want to remove the extension:
-
-1. Right-click **`uninstall.bat`** and select **"Run as administrator"**.
-2. The script will:
-   - Unregister the COM server (`regsvr32 /u`).
-   - Remove the `C:\Program Files\HeicThumbnailProvider\` directory.
-   - Flush the Explorer thumbnail cache.
-
----
-
-## 🔍 Troubleshooting & FAQ
-
-### Q: Thumbnails still show generic icons after running `install.bat`
-1. Open Windows Explorer, click **View** &rarr; **Options** &rarr; **Change folder and search options**.
-2. Switch to the **View** tab.
-3. Make sure **"Always show icons, never thumbnails"** is **unchecked**.
-4. Make sure folder view is set to **Medium icons**, **Large icons**, or **Extra large icons**.
-
-### Q: Windows Defender or SmartScreen warning
-Because this is an independent open-source project compiled directly from C++ without an expensive commercial code-signing certificate, Windows SmartScreen may show a warning:
-- Click **"More info"** &rarr; **"Run anyway"**.
-- All source code and build steps are completely transparent, reproducible, and open-source on GitHub.
-
-### Q: Does this require the paid HEVC Video Extension from Microsoft Store?
-**No.** This extension uses an embedded, open-source `libheif` + `libde265` decoding pipeline. It functions 100% independently without requiring any Microsoft Store purchases or third-party codec packs.
-
----
-
-## 💻 System Requirements
-
-- **Operating System:** Windows 10 or Windows 11 (64-bit / x64)
-- **Architecture:** x64 (AMD64 / Intel 64)
-- **Dependencies:** None (all decoding libraries and CRT runtimes are bundled)
-
----
-
-## 📄 License & Credits
-
-- Powered by [libheif](https://github.com/strukturag/libheif) and [libde265](https://github.com/strukturag/libde265).
-- Released under the open-source MIT License.
+# 2. Configure & Build Release DLL
+mkdir build
+cd build
+cmake .. -DCMAKE_TOOLCHAIN_FILE="C:/vcpkg/scripts/buildsystems/vcpkg.cmake" -DCMAKE_BUILD_TYPE=Release
+cmake --build . --config Release
